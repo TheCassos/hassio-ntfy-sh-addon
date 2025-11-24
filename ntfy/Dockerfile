@@ -8,8 +8,7 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN apk add --no-cache \
     curl \
     jq \
-    bash \
-    su-exec
+    bash
 
 # Install ntfy from official Docker image
 COPY --from=binwiederhier/ntfy:latest /usr/bin/ntfy /usr/local/bin/ntfy
@@ -20,11 +19,6 @@ RUN chmod a+x /run.sh
 
 # Create data directory
 RUN mkdir -p /data
-
-# Set up user and permissions
-RUN addgroup -g 1000 ntfy && \
-    adduser -D -s /bin/sh -u 1000 -G ntfy ntfy && \
-    chown -R ntfy:ntfy /data
 
 # Expose port
 EXPOSE 8080

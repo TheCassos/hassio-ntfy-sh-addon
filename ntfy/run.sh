@@ -94,7 +94,6 @@ if [ -n "${AUTH_FILE}" ] && [ "${AUTH_FILE}" != "" ]; then
     if [ ! -f "/data/${AUTH_FILE}" ]; then
         echo "[INFO] Creating authentication file: /data/${AUTH_FILE}"
         touch "/data/${AUTH_FILE}"
-        chown ntfy:ntfy "/data/${AUTH_FILE}"
         chmod 600 "/data/${AUTH_FILE}"
     fi
 fi
@@ -113,7 +112,6 @@ if [ "${ENABLE_RESERVATIONS}" = "true" ]; then
 fi
 
 # Ensure data directory permissions
-chown -R ntfy:ntfy /data
 chmod -R 755 /data
 
 # Log the configuration (without sensitive data)
@@ -123,6 +121,6 @@ echo "[INFO] Log Level: ${LOG_LEVEL}"
 echo "[INFO] Authentication: $([ -n "${AUTH_FILE}" ] && echo "Enabled" || echo "Disabled")"
 echo "[INFO] Behind Proxy: ${BEHIND_PROXY}"
 
-# Start ntfy server as ntfy user
+# Start ntfy server
 echo "[INFO] Starting ntfy server..."
-exec su-exec ntfy /usr/local/bin/ntfy serve --config="${CONFIG_FILE}"
+exec /usr/local/bin/ntfy serve --config="${CONFIG_FILE}"
