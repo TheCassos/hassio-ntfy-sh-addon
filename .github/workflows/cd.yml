@@ -1,0 +1,161 @@
+name: CD
+
+permissions: write-all
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_type:
+        description: 'Release type'
+        required: true
+        default: 'patch'
+        type: choice
+        options:
+          - 'patch'
+          - 'minor'
+          - 'major'
+
+jobs:
+  create-gh-release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.calculate.outputs.version }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Calculate next version
+        id: calculate
+        env:
+          VERSION_TYPE: ${{ inputs.release_type }}
+        run: |
+          echo -e "\nCalculating next version..."
+
+          latest_tag_version=$(git tag --sort=committerdate --list | tail -1)
+          latest_version=${latest_tag_version:1}  # remove 'v' from tag version
+
+          latest_major_version=$(echo $latest_version | cut -d "." -f 1)
+          latest_minor_version=$(echo $latest_version | cut -d "." -f 2)
+          latest_patch_version=$(echo $latest_version | cut -d "." -f 3)
+
+          echo "  latest_version:  $latest_version"
+          echo "  latest_major_version: $latest_major_version"
+          echo "  latest_minor_version: $latest_minor_version"
+          echo "  latest_patch_version: $latest_patch_version"
+
+          if [[ "$VERSION_TYPE" == "major" ]]; then
+              next_version="$(($latest_major_version + 1)).0.0"
+          elif [[ "$VERSION_TYPE" == "minor" ]]; then
+              next_version="${latest_major_version}.$(($latest_minor_version + 1)).0"
+          elif [[ "$VERSION_TYPE" == "patch" ]]; then
+              next_version="${latest_major_version}.${latest_minor_version}.$(($latest_patch_version + 1))"
+          fi
+
+          echo "Next Version: $next_version"
+          echo "version=$next_version" >> $GITHUB_OUTPUT
+
+      - name: Create release
+        uses: ncipollo/release-action@b7eabc95ff50cbeeedec83973935c8f306dfcd0b # v1.20.0
+        with:
+          tag: ${{ steps.calculate.outputs.version }}
+          generateReleaseNotes: true
+
+
+  update_changelog:
+    name: Update Changelog and config.yaml
+    needs: create-gh-release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Update CHANGELOG.md and config.yaml
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.create-gh-release.outputs.version }}
+        run: |
+          # Extract tag and release notes from the event payload
+          RELEASE_NOTES=$(gh release view "${TAG}" --json body -q .body)
+
+          # create new GIT branch
+          git checkout -b "automated/update-changelog-${TAG}"
+
+          # Prepend new release info to the existing CHANGELOG.md
+          { echo -e "# Release ${TAG}\n\n${RELEASE_NOTES}\n\n"; cat CHANGELOG.md; } > CHANGELOG.tmp
+          mv CHANGELOG.tmp CHANGELOG.md
+
+          # put new version into config.yaml
+          yq e --inplace ".version = \"${TAG}\"" config.yaml
+
+          # re-read the tag in this step
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add CHANGELOG.md
+          git add config.yaml
+          git commit -m "Update changelog for release ${TAG}"
+          git push --set-upstream origin "automated/update-changelog-${TAG}"
+
+          # create PR
+          gh pr create \
+            --title "Update changelog for release ${TAG}" \
+            --body "This PR updates the changelog."
+
+          # merge PR
+          gh pr merge "automated/update-changelog-${TAG}" --merge
+
+  docker:
+    name: Build and Push Docker Images
+    runs-on: ubuntu-latest
+    env:
+      TAG: ${{ needs.create-gh-release.outputs.version }}
+    needs: create-gh-release
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [
+            {
+              docker_name: amd64,
+              hass_name: amd64
+            },
+            {
+              docker_name: arm64,
+              hass_name: aarch64
+            }
+          ]
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+
+    # QEMU lets amd64 runners cross-build arm/arm64 layers
+    - uses: docker/setup-qemu-action@v3
+
+    # Buildx = Docker’s multi-arch builder front-end
+    - uses: docker/setup-buildx-action@v3
+
+    # Log in to GitHub Container Registry
+    - uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: michalchecinski
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Build & push
+      uses: docker/build-push-action@v6
+      with:
+        context: .
+        push: true
+        platforms: linux/${{ matrix.arch.docker_name }}
+        build-args: |
+          BUILD_VERSION=${{ env.TAG }}
+          BUILD_ARCH=${{ matrix.arch.hass_name }}
+        tags: |
+          ghcr.io/michalchecinski/ntfy-ha-addon${{ matrix.arch.hass_name }}:${{ env.TAG }}
+          ghcr.io/michalchecinski/ntfy-ha-addon${{ matrix.arch.hass_name }}:latest
