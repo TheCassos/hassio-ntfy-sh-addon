@@ -54,4 +54,3 @@ schema:
   enable_signup: "bool"
   enable_login: "bool"
   enable_reservations: "bool"
-image: "binwiederhier/ntfy:latest"
