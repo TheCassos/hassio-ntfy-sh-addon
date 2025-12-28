@@ -1,5 +1,5 @@
 # https://developers.home-assistant.io/docs/add-ons/repository#repository-configuration
 
 name: ntfy Home Assistant Add-on Repository
-url: https://github.com/michalchecinski/hassio-ntfy-sh-addon
-maintainer: Michal Checinski
+url: https://github.com/TheCassos/hassio-ntfy-sh-addon
+maintainer: Jerry.Can
