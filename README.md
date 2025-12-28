@@ -1,5 +1,7 @@
 # ntfy Home Assistant Add-on
 
+# still working on this fork, not  currently working #
+
 [![GitHub Release][releases-shield]][releases]
 [![License][license-shield]](LICENSE.md)
 
