@@ -1,8 +1,8 @@
 name: "ntfy"
-version: "2.15.0"
+version: "latest"
 slug: "ntfy"
 description: "Self-hosted notification service"
-url: "https://github.com/binwiederhier/ntfy"
+url: "https://github.com/TheCassos/ntfy"
 advanced: true
 arch:
   - aarch64
