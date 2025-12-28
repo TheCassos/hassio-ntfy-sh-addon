@@ -24,6 +24,8 @@ Self-hosted notification service add-on for Home Assistant.
 
 This repository contains the Home Assistant add-on for [ntfy](https://ntfy.sh/), a simple HTTP-based pub-sub notification service.
 
+Forked to remove fixed version, now always 'latest'
+
 ## Installation
 
 1. Add this repository to your Home Assistant add-on store:
