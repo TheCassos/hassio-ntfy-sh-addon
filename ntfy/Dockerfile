@@ -1,4 +1,4 @@
-FROM binwiederhier/ntfy AS base
+FROM binwiederhier/ntfy:latest AS base
 
 ARG BUILD_VERSION
 ARG BUILD_ARCH
